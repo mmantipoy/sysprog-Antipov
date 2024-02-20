@@ -29,15 +29,15 @@ int partition(int arr[], int low, int high)
     return (i + 1);
 }
 
-void quickSort(int arr[], int low, int high, struct timespec *time, int max)
+void quickSort(int arr[], int low, int high, struct timespec *time, int max, long long *timeOverall, struct timespec *timeLast)
 {
     if (low < high)
     {
 
         int pi = partition(arr, low, high);
 
-        quickSort(arr, low, pi - 1, time, max);
-        quickSort(arr, pi + 1, high, time, max);
+        quickSort(arr, low, pi - 1, time, max, timeOverall, timeLast);
+        quickSort(arr, pi + 1, high, time, max, timeOverall, timeLast);
 
         struct timespec cur;
         clock_gettime(CLOCK_MONOTONIC, &cur);
@@ -45,8 +45,11 @@ void quickSort(int arr[], int low, int high, struct timespec *time, int max)
 
         if (elapsed > max)
         {
+            (*timeOverall) += elapsed;
+
             coro_yield();
             clock_gettime(CLOCK_MONOTONIC, time);
+            clock_gettime(CLOCK_MONOTONIC, timeLast);
         }
     }
 }
@@ -100,6 +103,8 @@ struct my_context
     int *counts;
     int i;
     struct timespec time;
+    long long *timeOverall;
+    struct timespec timeLast;
     int maxTime;
     int *que;
 };
@@ -107,12 +112,16 @@ struct my_context
 static struct my_context *my_context_new(char *name, char **file, int **numbers, int *counts, int i, int maxTime, int *que)
 {
     struct my_context *ctx = malloc(sizeof(*ctx));
+    long long *ptr = malloc(sizeof(long long));
+    *ptr = 0;
     ctx->name = strdup(name);
     ctx->file = file;
     ctx->numbers = numbers;
     ctx->counts = counts;
     ctx->i = i;
     clock_gettime(CLOCK_MONOTONIC, &ctx->time);
+    clock_gettime(CLOCK_MONOTONIC, &ctx->timeLast);
+    ctx->timeOverall = ptr;
     ctx->maxTime = maxTime;
     ctx->que = que;
 
@@ -132,17 +141,27 @@ static int coroutine_func_f(void *context)
     struct my_context *ctx = context;
     char *name = ctx->name;
 
+    clock_gettime(CLOCK_MONOTONIC, &ctx->time);
+
     while (*ctx->que < ctx->i)
     {
         printf("Начало сортировки файла %s корутиной %s\n", ctx->file[*ctx->que + 3], name);
         int copy = *ctx->que;
         ctx->numbers[*ctx->que] = readAndWriteNumbers(ctx->file[*ctx->que + 3], &ctx->counts[*ctx->que]);
         *ctx->que = *ctx->que + 1;
-        quickSort(ctx->numbers[copy], 0, ctx->counts[copy] - 1, &ctx->time, ctx->maxTime);
+        quickSort(ctx->numbers[copy], 0, ctx->counts[copy] - 1, &ctx->time, ctx->maxTime, ctx->timeOverall, &ctx->timeLast);
     }
+
+    struct timespec cur;
+    clock_gettime(CLOCK_MONOTONIC, &cur);
+    long long elapsed = ((cur.tv_sec - ctx->timeLast.tv_sec) * 1000000000 + (cur.tv_nsec - ctx->timeLast.tv_nsec)) / 1000;
+    (*ctx->timeOverall) += elapsed;
 
     printf("Запуск корутины %s\n", name);
     printf("%s: количество переключений %lld\n", name, coro_switch_count(this));
+    printf("%s: общее время корутины %lld\n", name, *ctx->timeOverall);
+
+    free(ctx->timeOverall);
 
     my_context_delete(ctx);
     return 0;
@@ -171,6 +190,11 @@ int main(int argc, char **argv)
         printf("Закончена %d\n", coro_status(c));
         coro_delete(c);
     }
+
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    long long elapsed_ns = ((end.tv_sec - start.tv_sec) * 1000000000 + (end.tv_nsec - start.tv_nsec)) / 1000;
+
+    printf("Общее время работы программы с корутинами: %lld микросекунд\n", elapsed_ns);
 
     const char *outputFileName = "out.txt";
     FILE *outputFile = fopen(outputFileName, "w");
@@ -263,7 +287,7 @@ int main(int argc, char **argv)
     fclose(outputFile);
 
     clock_gettime(CLOCK_MONOTONIC, &end);
-    long long elapsed_ns = ((end.tv_sec - start.tv_sec) * 1000000000 + (end.tv_nsec - start.tv_nsec)) / 1000;
+    elapsed_ns = ((end.tv_sec - start.tv_sec) * 1000000000 + (end.tv_nsec - start.tv_nsec)) / 1000;
 
     printf("Общее время работы программы: %lld микросекунд\n", elapsed_ns);
     printf("Програма успешно завершена\n");

@@ -116,14 +116,19 @@ test_io(void)
 
 	int fd1 = ufs_open("file", UFS_CREATE);
 	int fd2 = ufs_open("file", 0);
+
+	// fprintf(stderr, "\n fd1 %d \n", fd1);
+	// fprintf(stderr, "\n fd2 %d \n", fd2);
 	unit_fail_if(fd1 == -1 || fd2 == -1);
 
 	char buffer[2048];
+	// fprintf(stderr, "CALLL-111-%s\n", buffer);
 	unit_check(ufs_write(fd1, "123###", 3) == 3,
 		"data (only needed) is written");
 	unit_check(ufs_read(fd2, buffer, sizeof(buffer)) == 3, "data is read");
+	// fprintf(stderr, "CALLL-%s\n", buffer);
 	unit_check(memcmp(buffer, "123", 3) == 0, "the same data");
-
+// fprintf(stderr, "CALLL-%s\n", buffer);
 	ufs_close(fd1);
 	ufs_close(fd2);
 	/*
@@ -135,17 +140,18 @@ test_io(void)
 	unit_check(memcmp(buffer, "123", 3) == 0, "got data from start");
 	unit_check(ufs_write(fd1, "45678###", 5) == 5, "write more");
 	ufs_close(fd1);
-
+	// fprintf(stderr, "CALLL-%s\n", buffer);
 	fd1 = ufs_open("file", 0);
 	unit_fail_if(fd1 == -1);
 	unit_check(ufs_write(fd1, "abcd###", 4) == 4, "overwrite");
 	unit_check(ufs_read(fd1, buffer, sizeof(buffer)) == 4, "read rest");
 	unit_check(memcmp(buffer, "5678", 4) == 0, "got the tail");
 	ufs_close(fd1);
-
+	// fprintf(stderr, "CALLL-%s\n", buffer);
 	fd1 = ufs_open("file", 0);
 	unit_fail_if(fd1 == -1);
 	unit_check(ufs_read(fd1, buffer, sizeof(buffer)) == 8, "read all");
+	// fprintf(stderr, "CALLL-%s\n", buffer);
 	unit_check(memcmp(buffer, "abcd5678", 4) == 0, "check all");
 	ufs_close(fd1);
 	/*
@@ -166,12 +172,17 @@ test_io(void)
 	/*
 	 * Write multiple blocks.
 	 */
+
+	// fprintf(stderr, "\n BUFFER GOVNA %s\n", buffer);
+
 	size_t some_size = 1234;
 	assert(sizeof(buffer) > some_size);
 	for (size_t i = 0; i < some_size; ++i)
 		buffer[i] = 'a' + i % ('z' - 'a' + 1);
 	fd1 = ufs_open("file", 0);
 	unit_fail_if(fd1 == -1);
+
+	// fprintf(stderr, "\n BUFFER %s\n", buffer);
 	size_t progress = 0;
 	while (progress < some_size) {
 		ssize_t to_write = progress % 123 + 1;
@@ -206,6 +217,8 @@ test_io(void)
 	bool ok = true;
 	for (size_t i = 0; i < some_size && ok; ++i)
 		ok = ok && buffer[i] == (char)('a' + i % ('z' - 'a' + 1));
+	// fprintf(stderr, "\n BUFFER %s\n", buffer);
+	
 	unit_check(ok, "data is correct");
 
 	ufs_delete("file");
@@ -272,18 +285,25 @@ static void
 test_max_file_size(void)
 {
 	unit_test_start();
+	// fprintf(stderr, "\n BREDIK 0 =======================\n");
 
 	int fd = ufs_open("file", UFS_CREATE);
 	unit_fail_if(fd == -1);
-
+	// fprintf(stderr, "\n BREDIK 1 =======================\n");
 	int buf_size = 1024 * 1024;
 	char *buf = (char *) malloc(buf_size);
 	for (int i = 0; i < buf_size; ++i)
 		buf[i] = 'a' + i % 26;
 	for (int i = 0; i < 100; ++i) {
+	// fprintf(stderr, "\n BREDIK 1-1 =======================\n");
+
 		ssize_t rc = ufs_write(fd, buf, buf_size);
 		unit_fail_if(rc != buf_size);
+	// fprintf(stderr, "\n BREDIK 1-2 =======================\n");
+
 	}
+	// fprintf(stderr, "\n BREDIK 2 =======================\n");
+
 	unit_check(ufs_write(fd, "a", 1) == -1,
 		   "can not write over max file size");
 	unit_check(ufs_errno() == UFS_ERR_NO_MEM, "errno is set");
@@ -294,6 +314,8 @@ test_max_file_size(void)
 	char *buf2 = (char *) malloc(buf_size);
 	for (int i = 0; i < 100; ++i) {
 		ssize_t rc = ufs_read(fd, buf2, buf_size);
+	// fprintf(stderr, "\n BREDIK 2 =======================%ld\n", rc);
+
 		unit_fail_if(rc != buf_size);
 		unit_fail_if(memcmp(buf2, buf, buf_size) != 0);
 	}
@@ -309,7 +331,6 @@ test_max_file_size(void)
 static void
 test_rights(void)
 {
-#ifdef NEED_OPEN_FLAGS
 	unit_test_start();
 
 	int fd = ufs_open("file", UFS_CREATE);
@@ -378,7 +399,6 @@ test_rights(void)
 
 	unit_fail_if(ufs_delete("file") != 0);
 	unit_test_finish();
-#endif
 }
 
 static void
@@ -454,6 +474,8 @@ main(void)
 	test_max_file_size();
 	test_rights();
 	test_resize();
+
+		// fprintf(stderr, "\n BREDIK YRA =======================\n");
 
 	/* Free the memory to make the memory leak detector happy. */
 	ufs_destroy();

@@ -33,9 +33,6 @@ enum open_flags {
 	 * create it.
 	 */
 	UFS_CREATE = 1,
-
-#ifdef NEED_OPEN_FLAGS
-
 	/**
 	 * With this flag it is allowed to only read the file.
 	 */
@@ -50,8 +47,6 @@ enum open_flags {
 	 * into the file.
 	 */
 	UFS_READ_WRITE = 8,
-
-#endif
 };
 
 /** Possible errors from all functions. */
@@ -60,11 +55,7 @@ enum ufs_error_code {
 	UFS_ERR_NO_FILE,
 	UFS_ERR_NO_MEM,
 	UFS_ERR_NOT_IMPLEMENTED,
-
-#ifdef NEED_OPEN_FLAGS
-
 	UFS_ERR_NO_PERMISSION,
-#endif
 };
 
 /** Get code of the last error. */
@@ -136,6 +127,9 @@ ufs_close(int fd);
  */
 int
 ufs_delete(const char *filename);
+
+
+size_t min(size_t a, size_t b);
 
 #ifdef NEED_RESIZE
 
